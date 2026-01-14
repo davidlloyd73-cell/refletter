@@ -1,8 +1,13 @@
+const fetch = require('node-fetch');
+
 exports.handler = async (event, context) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
@@ -29,17 +34,27 @@ exports.handler = async (event, context) => {
     if (!response.ok) {
       return {
         statusCode: response.status,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ error: data.error?.message || 'API request failed' })
       };
     }
 
     return {
       statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(data)
     };
   } catch (error) {
+    console.error('Function error:', error);
     return {
       statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ error: error.message })
     };
   }
