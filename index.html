@@ -13,7 +13,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect } = React;
         
         const FileText = ({ className }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,6 +45,12 @@
             </svg>
         );
 
+        const Clipboard = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+        );
+
         function ReferralGenerator() {
             const [tortusOutput, setTortusOutput] = useState('');
             const [additionalContext, setAdditionalContext] = useState('');
@@ -54,6 +60,7 @@
             const [generatedLetter, setGeneratedLetter] = useState('');
             const [isGenerating, setIsGenerating] = useState(false);
             const [copied, setCopied] = useState(false);
+            const [pasteNotification, setPasteNotification] = useState(false);
 
             const destinations = [
                 'Cardiology',
@@ -76,6 +83,39 @@
                 'TWIMC (General)',
                 'Custom'
             ];
+
+            // Handle clipboard paste
+            useEffect(() => {
+                const handlePaste = async (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image') !== -1) {
+                            e.preventDefault();
+                            const blob = items[i].getAsFile();
+                            
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const newImage = {
+                                    name: `Screenshot ${new Date().toLocaleTimeString()}`,
+                                    data: event.target.result.split(',')[1],
+                                    type: blob.type
+                                };
+                                setUploadedImages(prev => [...prev, newImage]);
+                                
+                                // Show notification
+                                setPasteNotification(true);
+                                setTimeout(() => setPasteNotification(false), 2000);
+                            };
+                            reader.readAsDataURL(blob);
+                        }
+                    }
+                };
+
+                document.addEventListener('paste', handlePaste);
+                return () => document.removeEventListener('paste', handlePaste);
+            }, []);
 
             const handleImageUpload = async (e) => {
                 const files = Array.from(e.target.files);
@@ -160,7 +200,6 @@ The letter should be ready to copy and paste into EMIS or other systems.`
                         });
                     });
 
-                    // Call our Netlify function instead of Anthropic API directly
                     const response = await fetch('/.netlify/functions/generate-letter', {
                         method: 'POST',
                         headers: {
@@ -211,6 +250,14 @@ The letter should be ready to copy and paste into EMIS or other systems.`
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+                    {/* Paste notification */}
+                    {pasteNotification && (
+                        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-50">
+                            <Check className="w-5 h-5" />
+                            Screenshot pasted!
+                        </div>
+                    )}
+
                     <div className="max-w-7xl mx-auto">
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                             <div className="flex items-center gap-3 mb-6">
@@ -261,9 +308,15 @@ The letter should be ready to copy and paste into EMIS or other systems.`
                                                 id="image-upload"
                                             />
                                             <label htmlFor="image-upload" className="cursor-pointer">
-                                                <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                                                <div className="flex items-center justify-center gap-4 mb-2">
+                                                    <Upload className="w-8 h-8 text-gray-400" />
+                                                    <Clipboard className="w-8 h-8 text-blue-400" />
+                                                </div>
                                                 <p className="text-sm text-gray-600">
                                                     Upload lab results, past records, images
+                                                </p>
+                                                <p className="text-xs text-blue-600 mt-1 font-medium">
+                                                    Or press Ctrl+V (Cmd+V on Mac) to paste screenshots!
                                                 </p>
                                                 <p className="text-xs text-gray-500 mt-1">
                                                     Click to browse or drag and drop
@@ -389,6 +442,7 @@ The letter should be ready to copy and paste into EMIS or other systems.`
                             <ul className="text-sm text-blue-800 space-y-1">
                                 <li>• Include relevant past medical history and medications in additional context</li>
                                 <li>• Upload images of recent lab results, ECGs, or imaging reports</li>
+                                <li>• <strong>NEW:</strong> Use Win+Shift+S (or Snipping Tool) to screenshot, then press Ctrl+V to paste directly!</li>
                                 <li>• Be specific about what you're asking the receiving service to do</li>
                                 <li>• The app will tailor the letter style to the selected specialty</li>
                                 <li>• Review and edit the generated letter before sending</li>
